@@ -64,15 +64,21 @@ export const deleteItem = async (id) => {
 };
 
 // Update an item by ID
-export const updateItem = async (id, title = "Task", description) => {
-  console.log(id, description);
+export const updateItem = async (id, title, description) => {
+  // console.log(id, description);{}
+  const date = new Date().toISOString();
+  if (title != "") {
+    title = title;
+  } else {
+    title = moment(new Date()).format("DD-MMM");
+  }
   try {
     // Ensure that the table is created before updating
     await initializeDatabase();
 
     const result = await db.runAsync(
-      `UPDATE items SET title = ?, description = ? WHERE id = ?;`,
-      [title, description, id]
+      `UPDATE items SET title = ?, description = ? , date=? WHERE id = ?;`,
+      [title, description, moment(date).format("DD-MMM"), id]
     );
     console.log("Item updated:", result);
   } catch (error) {

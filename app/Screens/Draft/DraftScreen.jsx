@@ -24,14 +24,43 @@ const DraftScreen = () => {
   }, []); // Empty dependency array means this runs only once when the component mounts
 
   const stripHTMLTags = (htmlString) => {
+    console.log("htmlString ", htmlString);
     if (!htmlString) return "";
     return htmlString.replace(/<\/?[^>]+(>|$)/g, ""); // Remove HTML tags
+  };
+
+  // Function to extract and concatenate `insert` values from `oldDelta`
+  const parseDeltaDescription = (description) => {
+    try {
+      // The description could be a delta-like string, e.g., {insert=Some text}
+      // We need to manually extract `insert` values and combine them.
+
+      const deltaPattern = /insert=([^{]+)/g; // Regex to capture the text inserted in the delta.
+      const matches = [];
+      let match;
+
+      // Match all insert values from the delta string
+      while ((match = deltaPattern.exec(description)) !== null) {
+        matches.push(match[1]);
+      }
+
+      // If no matches are found, just return the description as-is.
+      if (matches.length === 0) {
+        return description;
+      }
+
+      // Combine all the matched insert values into a single string.
+      return matches.join("");
+    } catch (error) {
+      console.error("Error parsing description:", error);
+      return description; // Return the raw description if parsing fails
+    }
   };
 
   // Component to render each item
   const ListItem = ({ item }) => (
     <View style={styles.columnItem}>
-      {console.log(item.date)}
+      {console.log(item.description)}
       <TouchableOpacity
         style={styles.item}
         onPress={() => {
@@ -43,7 +72,7 @@ const DraftScreen = () => {
         <Text style={styles.title}>{item.date}</Text>
         <Text style={styles.date}>{item.title}</Text>
         <Text style={styles.description} numberOfLines={1}>
-          {stripHTMLTags(item.description)}
+          {parseDeltaDescription(item.description)}
         </Text>
       </TouchableOpacity>
     </View>
