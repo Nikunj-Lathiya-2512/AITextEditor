@@ -48,35 +48,30 @@ const EditorScreen = () => {
   }, []);
 
   const [isImproveModalVisible, setImproveModalVisible] = useState(false);
-  // const [selectedText, setSelectedText] = useState("Sample selected text");
 
   const improveItems = [
     {
       id: "1",
       name: "Readability",
-      description:
-        "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s,",
+      description: "Readability Dummy text",
       icon: "star",
     },
     {
       id: "2",
       name: "Fluency",
-      description:
-        "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s,",
+      description: "Fluency Dummy text",
       icon: "star-border",
     },
     {
       id: "3",
       name: "shorten",
-      description:
-        "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s,",
+      description: "shorten Dummy text",
       icon: "star-half",
     },
     {
       id: "4",
       name: "Expand",
-      description:
-        "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s,",
+      description: "Expand Dummy text",
       icon: "star-rate",
     },
   ];
@@ -103,7 +98,6 @@ const EditorScreen = () => {
   };
 
   const handleItemPress = (item) => {
-    // alert(`Item pressed: ${itemName}`);
     setModalVisible(false); // Close the first modal
     setImproveModalVisible(false); // Close the improve modal
     setSelectedItem(item);
@@ -116,36 +110,29 @@ const EditorScreen = () => {
     setItemModalVisible(false); // Close modal after copy
   };
 
-  // const handleAddToEditor = () => {
-  //   // Add the description to your editor (for example, setText or similar action)
-  //   Alert.alert("Added", `Added "${selectedItem.description}" to the editor.`);
-  //   setSelectedText(selectedItem.description);
-  //   setText(selectedItem.description);
-  //   setItemModalVisible(false); // Close modal after adding to editor
-  // };
+  const handleAddToEditor = async () => {
+    try {
+      // Retrieve the selected range
+      const editor = richTextRef.current;
+      const selectedRange = await editor.getSelection();
 
-  const handleAddToEditor = () => {
-    if (selectedItem && selectedItem.description) {
-      // Directly append description to the editor
-      const newText = selectedItem.description;
-      console.log("----> ", newText);
-      setText(newText);
-      console.log("Afetr ----> ", text);
+      if (!selectedRange || selectedRange.length === 0) {
+        Alert.alert("Error", "No text selected to replace!");
+        return;
+      }
+
+      // Replace the selected text
+      const { index, length } = selectedRange;
+      editor.deleteText(index, length); // Delete the selected text
+      editor.insertText(index, selectedItem.description, ""); // Insert the new text at the same position
+
+      setSelectedText(""); // Clear the input field
       setItemModalVisible(false);
-    } else {
-      Alert.alert("Error", "No item description available to add.");
+    } catch (error) {
+      console.error("Error replacing text:", error);
+      // Alert.alert("Error", "An issue occurred while replacing text.");
     }
   };
-
-  useEffect(() => {
-    if (text) {
-      // This will alert when the text state is updated
-      // Alert.alert(
-      //   "Text Updated",
-      //   `Added "${JSON.stringify(text)}" to the editor.`
-      // );
-    }
-  }, [text]); // Dependency array makes it run when text changes
 
   const handleCloseModal = () => {
     setItemModalVisible(false); // Close the item modal
@@ -205,13 +192,6 @@ const EditorScreen = () => {
     }
   };
 
-  // Updates text and history for undo/redo
-  const handleTextChange = (newText) => {
-    setHistory((prevHistory) => [...prevHistory, text]); // Save the current state to history before changing
-    setRedoHistory([]); // Clear redo history whenever new text is entered
-    setText(newText); // Update the current text
-  };
-
   const handleDownloadHTML = async () => {
     try {
       const filePath = `${FileSystem.documentDirectory}draft.html`;
@@ -236,7 +216,6 @@ const EditorScreen = () => {
             selection.index,
             selection.length
           );
-          console.log("Selected Text:", selectedText);
           setSelectedText(selectedText);
           setModalVisible(true);
         } else {
@@ -248,48 +227,69 @@ const EditorScreen = () => {
     }
   };
 
-  useEffect(() => {
-    //   if (id != null) {
-    //     if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
-    //     autoSaveTimeout = setTimeout(async () => {
-    //       try {
-    //         await updateItem(id, title || new Date().toISOString(), text);
-    //       } catch (error) {
-    //         console.error("Error during auto-save:", error);
-    //       }
-    //     }, 2000);
-    //   } else {
-    //     if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
-    //     autoSaveTimeout = setTimeout(async () => {
-    //       try {
-    //         await addItem(id, title || new Date().toISOString(), text);
-    //       } catch (error) {
-    //         console.error("Error during auto-save:", error);
-    //       }
-    //     }, 10000);
-    //   }
-    //   return () => {
-    //     if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
-    //   };
-  }, [text]);
+  // useEffect(() => {
+  //   if (id != null) {
+  //     if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
+  //     autoSaveTimeout = setTimeout(async () => {
+  //       try {
+  //         await updateItem(id, title || new Date().toISOString(), text);
+  //       } catch (error) {
+  //         console.error("Error during auto-save:", error);
+  //       }
+  //     }, 2000);
+  //   } else {
+  //     if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
+  //     autoSaveTimeout = setTimeout(async () => {
+  //       try {
+  //         await addItem(id, title || new Date().toISOString(), text);
+  //       } catch (error) {
+  //         console.error("Error during auto-save:", error);
+  //       }
+  //     }, 10000);
+  //   }
+  //   return () => {
+  //     if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
+  //   };
+  // }, [text]);
 
-  // Undo function
-  const handleUndo = () => {
-    // if (history.length > 0) {
-    const lastState = history[history.length - 1]; // Get the last state from history
-    setRedoHistory([text, ...redoHistory]); // Move current text to redoHistory
-    setText(lastState); // Set the last state to the text
-    setHistory(history.slice(0, -1)); // Remove the last entry from history
-    // }
+  // Updates text and history for undo/redo
+  const handleTextChange = (newText) => {
+    setHistory((prevHistory) => [...prevHistory, text]); // Save current text in history
+    setRedoHistory([]); // Clear redo history whenever new changes are made
+    setText(newText); // Update the current text state
   };
 
-  // Redo function
+  // Handle Undo
+  // Handle Undo
+  const handleUndo = () => {
+    if (richTextRef.current) {
+      const editor = richTextRef.current.getEditor(); // Get the Quill editor instance
+      if (editor && editor.history) {
+        editor.history.undo(); // Perform Undo
+        console.log("Undo performed");
+      } else {
+        console.error("Editor or history module not found.");
+        Alert.alert("Error", "Editor or history module not found.");
+      }
+    } else {
+      console.error("Editor instance not found.");
+      Alert.alert("Error", "Editor instance not found.");
+    }
+  };
+  // Handle Redo
   const handleRedo = () => {
-    if (redoHistory.length > 0) {
-      const lastRedoState = redoHistory[0]; // Get the first state from redoHistory
-      setHistory([...history, text]); // Move current text to history
-      setText(lastRedoState); // Set the redo state as the current text
-      setRedoHistory(redoHistory.slice(1)); // Remove the first entry from redoHistory
+    if (richTextRef.current) {
+      const editor = richTextRef.current?.getEditor(); // Ensure we access the editor
+      if (editor && editor.history) {
+        editor.history.redo(); // Perform Redo
+        console.log("Redo performed");
+      } else {
+        console.error("Editor or history module not found.");
+        Alert.alert("Error", "Editor or history module not found.");
+      }
+    } else {
+      console.error("Editor instance not found.");
+      Alert.alert("Error", "Editor instance not found.");
     }
   };
 
@@ -309,10 +309,7 @@ const EditorScreen = () => {
       <View style={{ height: 50, padding: 10 }}>
         {/* Undo and Redo Buttons */}
         <View style={styles.buttonsContainer}>
-          <TouchableOpacity
-            onPress={handleUndo}
-            // disabled={history.length === 0}
-          >
+          <TouchableOpacity onPress={handleUndo}>
             <MaterialIcons
               name="undo"
               size={30}
@@ -320,10 +317,7 @@ const EditorScreen = () => {
               color={history.length === 0 ? "#ccc" : "black"}
             />
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={handleRedo}
-            // disabled={redoHistory.length === 0}
-          >
+          <TouchableOpacity onPress={handleRedo}>
             <MaterialIcons
               name="redo"
               size={30}
@@ -338,10 +332,11 @@ const EditorScreen = () => {
         ref={richTextRef}
         style={styles.editor}
         placeholder="Start writing your draft..."
-        onTextChange={setText}
+        onChangeText={(value) => setText(value)}
         initialHtml={text}
         onSelectionChange={handleSelectionChange}
       />
+
       <QuillToolbar
         editor={richTextRef}
         options="full"
@@ -355,6 +350,7 @@ const EditorScreen = () => {
           color="#007bff"
         />
       </View>
+
       {/* Modal for Improve and Suggestion Options */}
       <Modal
         transparent={true}
@@ -364,17 +360,34 @@ const EditorScreen = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
+            {/* Close Icon */}
             <TouchableOpacity
-              style={styles.modalButton}
-              onPress={() => {
-                handleImprovePress();
+              style={styles.improveCloseButton}
+              onPress={() => setModalVisible(false)}
+            >
+              <MaterialIcons name="close" size={24} color="white" />
+            </TouchableOpacity>
+
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                width: 200,
+                marginTop: 20,
               }}
             >
-              <Text style={styles.modalButtonText}>Improve</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.modalButton} onPress={() => {}}>
-              <Text style={styles.modalButtonText}>Suggestion</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => {
+                  handleImprovePress();
+                }}
+              >
+                <Text style={styles.modalButtonText}>Improve</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalButton} onPress={() => {}}>
+                <Text style={styles.modalButtonText}>Suggestion</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -505,6 +518,12 @@ const styles = StyleSheet.create({
   modalButtonText: {
     color: "#000",
     fontSize: 16,
+  },
+  improveCloseButton: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    padding: 5,
   },
   improveModalOverlay: {
     marginTop: "48%",
