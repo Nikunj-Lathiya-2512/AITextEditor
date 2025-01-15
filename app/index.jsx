@@ -8,7 +8,6 @@ const Stack = createStackNavigator();
 
 function App() {
   return (
-    // <NavigationContainer>
     <Stack.Navigator
       initialRouteName="DraftScreen"
       screenOptions={{ headerShown: false }}
@@ -16,7 +15,6 @@ function App() {
       <Stack.Screen name="DraftScreen" component={DraftScreen} />
       <Stack.Screen name="EditorScreen" component={EditorScreen} />
     </Stack.Navigator>
-    // </NavigationContainer>
   );
 }
 

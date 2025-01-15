@@ -32,8 +32,6 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
   onTextChange, // New callback prop
   inputValue,
 }) => {
-  // const [inputValue, setInputValue] = useState("");
-
   const handleTextChange = (value: string) => {
     inputValue = value; // Update local state
     if (onTextChange) {

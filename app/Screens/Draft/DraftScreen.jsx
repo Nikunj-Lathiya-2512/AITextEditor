@@ -60,7 +60,6 @@ const DraftScreen = () => {
   // Component to render each item
   const ListItem = ({ item }) => (
     <View style={styles.columnItem}>
-      {console.log(item.description)}
       <TouchableOpacity
         style={styles.item}
         onPress={() => {
@@ -72,7 +71,7 @@ const DraftScreen = () => {
         <Text style={styles.title}>{item.date}</Text>
         <Text style={styles.date}>{item.title}</Text>
         <Text style={styles.description} numberOfLines={1}>
-          {parseDeltaDescription(item.description)}
+          {item.description}
         </Text>
       </TouchableOpacity>
     </View>

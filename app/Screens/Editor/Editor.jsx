@@ -23,6 +23,8 @@ import QuillEditor, { QuillToolbar } from "react-native-cn-quill";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Clipboard from "expo-clipboard";
 
+import { decode } from "html-entities";
+
 const EditorScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
@@ -38,8 +40,8 @@ const EditorScreen = () => {
   const [isItemModalVisible, setItemModalVisible] = useState(false); // New modal state
   const [selectedItem, setSelectedItem] = useState(null); // Holds selected item data
 
-  const [history, setHistory] = useState([]); // Stores history for undo/redo
-  const [redoHistory, setRedoHistory] = useState([]); // Stores history for redo
+  const [history, setHistory] = useState([]); // Undo history stack
+  const [redoHistory, setRedoHistory] = useState([]); // Redo history stack
 
   let autoSaveTimeout = null;
 
@@ -89,8 +91,6 @@ const EditorScreen = () => {
         } else {
           handleAddItem(plainText);
         }
-        // console.log("Plain text:", plainText);
-        // Alert.alert("Plain text", plainText); // Display plain text in alert
       } catch (error) {
         console.error("Error getting text:", error);
       }
@@ -108,30 +108,6 @@ const EditorScreen = () => {
     await Clipboard.setStringAsync(selectedItem.description); // Copy the description to clipboard
     Alert.alert("Copied", "Item description copied to clipboard.");
     setItemModalVisible(false); // Close modal after copy
-  };
-
-  const handleAddToEditor = async () => {
-    try {
-      // Retrieve the selected range
-      const editor = richTextRef.current;
-      const selectedRange = await editor.getSelection();
-
-      if (!selectedRange || selectedRange.length === 0) {
-        Alert.alert("Error", "No text selected to replace!");
-        return;
-      }
-
-      // Replace the selected text
-      const { index, length } = selectedRange;
-      editor.deleteText(index, length); // Delete the selected text
-      editor.insertText(index, selectedItem.description, ""); // Insert the new text at the same position
-
-      setSelectedText(""); // Clear the input field
-      setItemModalVisible(false);
-    } catch (error) {
-      console.error("Error replacing text:", error);
-      // Alert.alert("Error", "An issue occurred while replacing text.");
-    }
   };
 
   const handleCloseModal = () => {
@@ -227,69 +203,150 @@ const EditorScreen = () => {
     }
   };
 
-  // useEffect(() => {
-  //   if (id != null) {
-  //     if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
-  //     autoSaveTimeout = setTimeout(async () => {
-  //       try {
-  //         await updateItem(id, title || new Date().toISOString(), text);
-  //       } catch (error) {
-  //         console.error("Error during auto-save:", error);
-  //       }
-  //     }, 2000);
-  //   } else {
-  //     if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
-  //     autoSaveTimeout = setTimeout(async () => {
-  //       try {
-  //         await addItem(id, title || new Date().toISOString(), text);
-  //       } catch (error) {
-  //         console.error("Error during auto-save:", error);
-  //       }
-  //     }, 10000);
-  //   }
-  //   return () => {
-  //     if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
-  //   };
-  // }, [text]);
+  useEffect(() => {
+    if (id != null) {
+      if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
+      autoSaveTimeout = setTimeout(async () => {
+        try {
+          await updateItem(id, title || new Date().toISOString(), text);
+        } catch (error) {
+          console.error("Error during auto-save:", error);
+        }
+      }, 2000);
+    } else {
+      if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
+      autoSaveTimeout = setTimeout(async () => {
+        try {
+          await addItem(id, title || new Date().toISOString(), text);
+        } catch (error) {
+          console.error("Error during auto-save:", error);
+        }
+      }, 10000);
+    }
+    return () => {
+      if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
+    };
+  }, [text]);
 
   // Updates text and history for undo/redo
-  const handleTextChange = (newText) => {
-    setHistory((prevHistory) => [...prevHistory, text]); // Save current text in history
-    setRedoHistory([]); // Clear redo history whenever new changes are made
-    setText(newText); // Update the current text state
+  const handleTextChange = async (newText) => {
+    const currentContent = await richTextRef.current.getText();
+    setHistory((prevHistory) => [...prevHistory, currentContent]);
+    setRedoHistory([]); // Clear redo stack on new change
+  };
+
+  const handleEditorTextChange = async () => {
+    try {
+      const currentContent = await richTextRef.current.getHtml();
+      setHistory((prevHistory) => {
+        // Avoid adding duplicates to the history stack
+        if (prevHistory[prevHistory.length - 1] === currentContent) {
+          return prevHistory;
+        }
+        return [...prevHistory, currentContent];
+      });
+    } catch (error) {
+      console.error("Error capturing editor content:", error);
+    }
+  };
+
+  const handleAddToEditor = async () => {
+    try {
+      // Retrieve the selected range
+      const editor = richTextRef.current;
+      const selectedRange = await editor.getSelection();
+
+      if (!selectedRange || selectedRange.length === 0) {
+        Alert.alert("Error", "No text selected to replace!");
+        return;
+      }
+
+      // Replace the selected text
+      const { index, length } = selectedRange;
+      editor.deleteText(index, length); // Delete the selected text
+      editor.insertText(index, selectedItem.description, ""); // Insert the new text at the same position
+
+      setSelectedText(""); // Clear the input field
+      setItemModalVisible(false);
+    } catch (error) {
+      console.error("Error replacing text:", error);
+      // Alert.alert("Error", "An issue occurred while replacing text.");
+    }
   };
 
   // Handle Undo
-  // Handle Undo
-  const handleUndo = () => {
-    if (richTextRef.current) {
-      const editor = richTextRef.current.getEditor(); // Get the Quill editor instance
-      if (editor && editor.history) {
-        editor.history.undo(); // Perform Undo
-        console.log("Undo performed");
+  const handleUndo = async () => {
+    if (history.length > 1) {
+      // Step 1: Move the current content to the redo stack
+      const currentContent = history[history.length - 1];
+      setRedoHistory((prevRedoHistory) => [...prevRedoHistory, currentContent]);
+
+      // Step 2: Update the history stack to remove the current state
+      const newHistory = history.slice(0, -1);
+      setHistory(newHistory);
+
+      // Step 3: Retrieve the previous content from the history stack
+      const previousContent = newHistory[newHistory.length - 1];
+
+      // Step 4: Decode and clean the content before updating the editor
+      const decodedContent = decode(previousContent);
+      const plainText = decodedContent.replace(/<\/?[^>]+(>|$)/g, "");
+
+      // Step 5: Update the editor with the previous content
+      if (
+        richTextRef.current &&
+        typeof richTextRef.current.setText === "function"
+      ) {
+        try {
+          richTextRef.current.setText(plainText);
+          console.log("Undo operation successful. Updated content:", plainText);
+        } catch (error) {
+          console.error("Error updating editor content during Undo:", error);
+        }
       } else {
-        console.error("Editor or history module not found.");
-        Alert.alert("Error", "Editor or history module not found.");
+        console.error(
+          "Editor reference is not initialized or 'setText' method is not available."
+        );
       }
     } else {
-      console.error("Editor instance not found.");
-      Alert.alert("Error", "Editor instance not found.");
+      console.log(
+        "History stack is empty or has only one entry. Nothing to undo."
+      );
     }
   };
   // Handle Redo
-  const handleRedo = () => {
-    if (richTextRef.current) {
-      const editor = richTextRef.current?.getEditor(); // Ensure we access the editor
-      if (editor && editor.history) {
-        editor.history.redo(); // Perform Redo
-        console.log("Redo performed");
+  const handleRedo = async () => {
+    if (redoHistory.length > 0) {
+      console.log("Redo history before operation:", redoHistory);
+
+      // Retrieve the latest content from redo history
+      const nextContent = redoHistory[redoHistory.length - 1];
+
+      // Update the redo history stack
+      setRedoHistory(redoHistory.slice(0, -1));
+
+      // Add the current state to the history stack
+      setHistory((prevHistory) => [...prevHistory, nextContent]);
+
+      // Update the editor content
+      if (
+        richTextRef.current &&
+        typeof richTextRef.current.setText === "function"
+      ) {
+        try {
+          const decodedContent = decode(nextContent);
+          const plainText = decodedContent.replace(/<\/?[^>]+(>|$)/g, "");
+          richTextRef.current.setText(plainText);
+        } catch (error) {
+          console.error("Error updating editor content:", error);
+        }
       } else {
-        console.error("Editor or history module not found.");
-        Alert.alert("Error", "Editor or history module not found.");
+        console.error(
+          "Editor reference is not initialized or 'setText' method is not available."
+        );
       }
     } else {
-      console.error("Editor instance not found.");
-      Alert.alert("Error", "Editor instance not found.");
+      console.log("Redo history is empty. Nothing to redo.");
     }
   };
 
@@ -332,7 +389,7 @@ const EditorScreen = () => {
         ref={richTextRef}
         style={styles.editor}
         placeholder="Start writing your draft..."
-        onChangeText={(value) => setText(value)}
+        onTextChange={handleEditorTextChange}
         initialHtml={text}
         onSelectionChange={handleSelectionChange}
       />
